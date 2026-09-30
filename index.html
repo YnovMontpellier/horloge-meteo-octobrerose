@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Heure & météo · Montpellier Sud de France</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0A0006;--fg:#fff;--muted:#eaf0eb;--dim:#7d8494;--panel:#1b232d;
+  --mono:'Libre Baskerville',serif,'Helvetica World'}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:1.6vh;padding:2vh 4vw;overflow:hidden;text-align:center}
+#clock{font-family:var(--mono);font-weight:700;line-height:1;letter-spacing:-.02em;font-size:min(17vw,26vh)}
+#clock .sep{display:inline-block;transform:translateY(-.04em);animation:blink 2s steps(1) infinite}
+@keyframes blink{50%{opacity:.35}}
+.rule{width:min(16vw,220px);height:4px;border-radius:4px;flex:none;
+  background:linear-gradient(90deg,#f0463c,#f06be0,#f5e94a,#6df08a,#4ab8ff,#5b6cf5,#3a9b6a)}
+#date{font-size:min(3.4vw,4.6vh);font-weight:500;letter-spacing:-.01em}
+#date span{color:var(--muted)}
+#hero{display:flex;align-items:center;justify-content:center;gap:3vw;margin-top:1.2vh}
+#emoji{font-size:min(7vw,11vh);line-height:1}
+#temp{font-family:var(--mono);font-weight:700;line-height:1;letter-spacing:-.03em;font-size:min(9vw,14vh)}
+#label{font-size:min(2vw,3vh);font-weight:500}
+#label span{color:var(--muted)}
+#stats{font-size:min(1.4vw,2.2vh);font-weight:500;color:var(--muted);display:flex;gap:.4em 1.4em;flex-wrap:wrap;justify-content:center}
+#stats b{color:var(--fg);font-weight:600}
+#days{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.2vw;width:min(100%,1000px);margin-top:1vh}
+.d{background:var(--panel);border-radius:16px;padding:1.2vh .6em;display:flex;flex-direction:column;align-items:center;gap:.2em}
+.d .n{font-size:min(1.5vw,2.3vh);font-weight:600}
+.d .e{font-size:min(3.4vw,5.2vh);line-height:1.1}
+.d .m{font-family:var(--mono);font-weight:700;font-size:min(1.9vw,2.9vh)}
+.d .m i{font-style:normal;color:var(--dim)}
+.d .c,.d .r{font-size:min(1.05vw,1.7vh);color:var(--muted)}
+#err{position:fixed;bottom:.6rem;color:var(--dim);font-size:.8rem}
+@media (max-width:760px){body{overflow:auto;justify-content:flex-start;padding-top:5vh}
+  #clock{font-size:26vw}#date{font-size:5vw}#hero{flex-direction:column;gap:.3rem}
+  #emoji{font-size:16vw}#temp{font-size:22vw}#label{font-size:4.5vw}#stats{font-size:3.6vw}
+  #days{grid-template-columns:1fr}.d .n{font-size:4.5vw}.d .e{font-size:12vw}.d .m{font-size:6vw}.d .c,.d .r{font-size:3.4vw}}
+@media (prefers-reduced-motion:reduce){#clock .sep{animation:none}}
+</style>
+</head>
+<body>
+<div id="clock">--<span class="sep">:</span>--</div>
+<div class="rule"></div>
+<div id="date"></div>
+<div id="hero"><div id="emoji">…</div><div id="temp">--°</div></div>
+<div id="label">Chargement…</div>
+<div id="stats"></div>
+<div id="days"></div>
+<div id="err"></div>
+<script>
+const LAT = 43.5773, LON = 3.9251, VILLE = "Montpellier";
+const REFRESH_MIN = 15;
+const WMO = {0:["☀️","Ciel dégagé"],1:["🌤️","Plutôt dégagé"],2:["⛅","Éclaircies"],3:["☁️","Couvert"],
+ 45:["🌫️","Brouillard"],48:["🌫️","Brouillard givrant"],51:["🌦️","Bruine légère"],53:["🌦️","Bruine"],55:["🌧️","Bruine dense"],
+ 61:["🌧️","Pluie faible"],63:["🌧️","Pluie"],65:["🌧️","Forte pluie"],66:["🌧️","Pluie verglaçante"],67:["🌧️","Pluie verglaçante"],
+ 71:["🌨️","Neige faible"],73:["🌨️","Neige"],75:["❄️","Forte neige"],77:["🌨️","Grains de neige"],
+ 80:["🌦️","Averses"],81:["🌧️","Averses"],82:["⛈️","Fortes averses"],85:["🌨️","Averses de neige"],86:["🌨️","Averses de neige"],
+ 95:["⛈️","Orage"],96:["⛈️","Orage et grêle"],99:["⛈️","Orage violent"]};
+const wmo = c => WMO[c] || ["🌡️","—"];
+const cap = s => s.charAt(0).toUpperCase()+s.slice(1);
+const $ = id => document.getElementById(id);
+
+function tick(){
+  const d = new Date();
+  $("clock").innerHTML = String(d.getHours()).padStart(2,"0")+'<span class="sep">:</span>'+String(d.getMinutes()).padStart(2,"0");
+  $("date").innerHTML = cap(d.toLocaleDateString("fr-FR",{weekday:"long"}))+" <span>"+
+    d.toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"})+"</span>";
+}
+tick(); setInterval(tick, 1000);
+
+async function meteo(){
+  const url = "https://api.open-meteo.com/v1/forecast?latitude="+LAT+"&longitude="+LON+
+    "&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m"+
+    "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"+
+    "&timezone=Europe%2FParis&forecast_days=4";
+  try{
+    const r = await fetch(url); if(!r.ok) throw new Error(r.status);
+    const j = await r.json(), c = j.current, d = j.daily;
+    const [emo,txt] = wmo(c.weather_code);
+    $("emoji").textContent = emo;
+    $("temp").textContent = Math.round(c.temperature_2m)+"°C";
+    $("label").innerHTML = `${txt} <span>· ${VILLE}</span>`;
+    $("stats").innerHTML =
+      `<span>Ressenti <b>${Math.round(c.apparent_temperature)}°</b></span>`+
+      `<span>Min <b>${Math.round(d.temperature_2m_min[0])}°</b> / Max <b>${Math.round(d.temperature_2m_max[0])}°</b></span>`+
+      `<span>Pluie <b>${d.precipitation_probability_max[0] ?? 0} %</b></span>`+
+      `<span>Vent <b>${Math.round(c.wind_speed_10m)} km/h</b></span>`+
+      `<span>Humidité <b>${c.relative_humidity_2m} %</b></span>`;
+    $("days").innerHTML = [1,2,3].map(i=>{
+      const nom = cap(new Date(d.time[i]+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"long"}));
+      const [e,t] = wmo(d.weather_code[i]);
+      return `<div class="d"><div class="n">${nom}</div><div class="e">${e}</div>`+
+        `<div class="m">${Math.round(d.temperature_2m_max[i])}° <i>${Math.round(d.temperature_2m_min[i])}°</i></div>`+
+        `<div class="c">${t}</div><div class="r">💧 ${d.precipitation_probability_max[i] ?? 0} %</div></div>`;
+    }).join("");
+    $("err").textContent = "";
+  }catch(e){ $("err").textContent = "Météo indisponible, nouvelle tentative dans quelques minutes."; }
+}
+meteo(); setInterval(meteo, REFRESH_MIN*60*1000);
+</script>
+</body>
+</html>
